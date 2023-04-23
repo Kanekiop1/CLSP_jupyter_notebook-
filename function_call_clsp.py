@@ -4,7 +4,7 @@ import time
 import math
 
 
-def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp):
+def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp,CostBo):
     #Decision variables default settings are 0.0 lb for all continous variables (positive values)
     x = n.addVars(Pro, Pe, vtype=GRB.BINARY, name="x")
     s = n.addVars(Pro, Pe, vtype=GRB.CONTINUOUS, name="s")
@@ -18,8 +18,7 @@ def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp):
     #n.update()
 
     #Objective
-    bocost = quicksum(h[j]*m*BO[j,t] for j in Pro for t in Pe[:-1]) + quicksum(h[j]*1000*BO[j,Pe[-1]] for j in Pro)
-    obj= quicksum(((f[j]*x[j,t]+h[j]*s[j,t])+(f[j]*xR[j,t]+hR[j]*sR[j,t])) for j in Pro for t in Pe) + bocost
+    obj= quicksum(((f[j]*x[j,t]+h[j]*s[j,t])+(f[j]*xR[j,t]+hR[j]*sR[j,t])+((h[j]*m)*BO[j,t])) for j in Pro for t in Pe)
     n.setObjective(obj, GRB.MINIMIZE) 
     #n.update()
 
@@ -35,6 +34,10 @@ def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp):
     #s[j,T] the last period of product j equals 0
     n.addConstrs((s[j,T-1] == 0) for j in Pro)    #T is defined as T=len(b) to count how many periods we have =10                 
     n.addConstrs((sR[j,T-1] == 0) for j in Pro)
+    if CostBo==True:
+        n.addConstrs((BO[j,T-1] == 0) for j in Pro)
+    else:
+        pass
     #Inventory balance constraints
     for j in Pro:
         for t in Pe:
