@@ -2,9 +2,9 @@
 from gurobipy import *
 import time
 import math
+import numpy as np
 
-
-def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp):
+def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp,realizationO):
     #Decision variables default settings are 0.0 lb for all continous variables (positive values)
     x = n.addVars(Pro, Pe, vtype=GRB.BINARY, name="x")
     s = n.addVars(Pro, Pe, vtype=GRB.CONTINUOUS, name="s")
@@ -143,19 +143,67 @@ def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp):
     for j in Pro:
         for t in Pe:
             cbcost=cbcost+(h[j]*m)*BO[j,t].x
-    cos=[]# BO0
+            
+ #realized calulations.................................................................................  
+
+    yS = np.zeros((Pro[-1]+1, Pe[-1]+1))
+    R = np.zeros((Pro[-1]+1, Pe[-1]+1))
+    
+    s = np.zeros((Pro[-1]+1, Pe[-1]+1))
+    BO = np.zeros((Pro[-1]+1, Pe[-1]+1))
+    
+    sR = np.zeros((Pro[-1]+1, Pe[-1]+1))
+    
+    
+    
+    for j in Pro:
+        for t in Pe:
+            #floor brackets  
+            yS[j,t] = math.floor((y[j,t].x*(1-realizationO[t])))  #math.floor works, no gurobi used here
+            #ceil brackets
+            R[j,t] = math.ceil((y[j,t].x*realizationO[t]))
+            print('O', realizationO[t])
+    
+    print(yS)
+    print(R)    
+        
+    
+    for j in Pro:
+        for t in Pe:
+            if t==0:
+                inv = s0[j]+yS[j,t]+yR[j,t]-d[j][t]-BO0[j]
+            else:
+                inv = s[j,t-1]+yS[j,t]+yR[j,t]-d[j][t]-BO[j,t-1]
+
+ #inv calculated from gurobi values/expressions & no matrix created so i use getValue()
+
+            if inv.getValue() > 0:
+                s[j,t] = inv.getValue()
+            else:
+                BO[j,t] = -inv.getValue()
+                
+    for j in Pro:
+        for t in Pe:
+            if t==0:
+                sR[j,t] = max(sR0[j] + R[j,t] - yR[j,t].x, 0)
+            else:
+                sR[j,t] = max(sR[j,t-1] + R[j,t] - yR[j,t].x, 0)
+    
+
+    cos=[] # empty BO0 by wyciagnac okrojone wartosci BO
 
     for j in Pro:
-        cos.append(BO[j,Rp-1].x)
+        cos.append(BO[j,Rp-1])
         
     mag=[] #s0
     for j in Pro:
-        mag.append(s[j,Rp-1].x)
+        mag.append(s[j,Rp-1])
     
     magr=[] #sR0
     for j in Pro:
-        magr.append(sR[j,Rp-1].x)
-        
+        magr.append(sR[j,Rp-1])
+    
+    
     #Objective fuction
     ZZ=n.ObjVal
     #Cost reduction
