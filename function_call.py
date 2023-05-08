@@ -129,9 +129,10 @@ def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp,rea
         for t in Pe:
             fcostr=fcostr+(f[j]*xR[j,t])
     xxx=0
+    #Capacity Utilization
     for j in Pro:
         for t in Pe:
-            xxx=xxx+(((tp[j]*y[j,t]+ts[j]*x[j,t])+(tpR[j]*yR[j,t]+tsR[j]*xR[j,t]))/b[0])*0.1
+            xxx=xxx+(((tp[j]*y[j,Rp-1]+ts[j]*x[j,Rp-1])+(tpR[j]*yR[j,Rp-1]+tsR[j]*xR[j,Rp-1]))/b[0])*0.1
             
     #Nr of setups for rework
     xrework=0
@@ -189,7 +190,12 @@ def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp,rea
             else:
                 sR[j,t] = max(sR[j,t-1] + R[j,t] - yR[j,t].x, 0)
     
-
+    #Back order realization costs 
+    cbcost2=0
+    for j in Pro:
+        for t in Pe:
+            cbcost2=cbcost2+(h[j]*m)*BO[j,t]
+            
     cos=[] # empty BO0 by wyciagnac okrojone wartosci BO
 
     for j in Pro:
@@ -223,8 +229,9 @@ def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp,rea
     print(xxx.getValue(), "Table 4 Capacity Utilization")
     print(ZZ, "Table 4 Z objective function value")
     print(cbcost,"Table 4 Back order costs cb")
+    print(cbcost2,"Table 4 Back order realization costs cb")
     #print(cred,"Table 4 Cost reduction")
     #print("Total time:", time.time()-start)
     
-    return cos, mag, magr
+    return cos, mag, magr, pp.getValue(), ppp.getValue(), pppp.getValue(), fcost.getValue(), xprod, fcostr.getValue(), xrework, xxx.getValue(), ZZ, cbcost, cbcost2
 
