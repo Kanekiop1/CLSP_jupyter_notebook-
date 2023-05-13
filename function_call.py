@@ -35,6 +35,7 @@ def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp,rea
     #s[j,T] the last period of product j equals 0
     n.addConstrs((s[j,T-1] == 0) for j in Pro)    #T is defined as T=len(b) to count how many periods we have =10                 
     n.addConstrs((sR[j,T-1] == 0) for j in Pro)
+    
     #Inventory balance constraints
     for j in Pro:
         for t in Pe:
@@ -96,6 +97,18 @@ def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp,rea
     n.printAttr('x','y*')
     n.printAttr('x','sR*')
     #n.update()
+    
+    lots_rework = np.zeros((Pro[-1]+1, Pe[-1]+1))
+    setup_rework = np.zeros((Pro[-1]+1, Pe[-1]+1))
+    for item in range(Pro[-1]+1):
+        for period in range(Pe[-1]+1):
+            lots_rework[item, period] = yR[item, period].x
+            setup_rework[item, period] = xR[item, period].x
+    print('Lots rework:\n', lots_rework)    
+    print('Setups rework:\n', setup_rework) 
+#     print(y)
+#     print(yR)
+#     print(xR)
 
     #PRINT ALL RESULTS BELOW
     #holding cost
@@ -132,7 +145,7 @@ def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp,rea
     #Capacity Utilization
     for j in Pro:
         for t in Pe:
-            xxx=xxx+(((tp[j]*y[j,Rp-1]+ts[j]*x[j,Rp-1])+(tpR[j]*yR[j,Rp-1]+tsR[j]*xR[j,Rp-1]))/b[0])*0.1
+            xxx=xxx+(((tp[j]*y[j,t]+ts[j]*x[j,t])+(tpR[j]*yR[j,t]+tsR[j]*xR[j,t]))/b[0])*0.1
             
     #Nr of setups for rework
     xrework=0
@@ -165,8 +178,8 @@ def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp,rea
             R[j,t] = math.ceil((y[j,t].x*realizationO[t]))
             print('O', realizationO[t])
     
-    print(yS)
-    print(R)    
+#     print(yS)
+#     print(R)    
         
     
     for j in Pro:
@@ -216,22 +229,23 @@ def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp,rea
     #cred=0
     #for j in Pro:
     #    for t in Pe:
-    #        cred=((ZZ*100)/(ZZ+cbcost))     
+    #        cred=((ZZ*100)/(ZZ+cbcost))    
+    
 
 
-    print(pp.getValue(), "Table 4 h Holding cost")
-    print(ppp.getValue(), "Table 4 hR Holding cost for rework")
-    print(pppp.getValue(), "Setup cost combined")
-    print(fcost.getValue(), "Table 4 f Setup cost for production")
-    print(xprod, "Table 4 x Nr of set-ups for production")
-    print(fcostr.getValue(), "Table 4 f Setup cost for rework")
-    print(xrework, "Table 4 xR Setup cost for rework")
-    print(xxx.getValue(), "Table 4 Capacity Utilization")
-    print(ZZ, "Table 4 Z objective function value")
-    print(cbcost,"Table 4 Back order costs cb")
-    print(cbcost2,"Table 4 Back order realization costs cb")
+    #print(pp.getValue(), "Table 4 h Holding cost")
+#     print(ppp.getValue(), "Table 4 hR Holding cost for rework")
+#     print(pppp.getValue(), "Setup cost combined")
+#     print(fcost.getValue(), "Table 4 f Setup cost for production")
+#     print(xprod, "Table 4 x Nr of set-ups for production")
+#     print(fcostr.getValue(), "Table 4 f Setup cost for rework")
+#     print(xrework, "Table 4 xR Setup cost for rework")
+#     print(xxx.getValue(), "Table 4 Capacity Utilization")
+#     print(ZZ, "Table 4 Z objective function value")
+#     print(cbcost,"Table 4 Back order costs cb")
+#     print(cbcost2,"Table 4 Back order realization costs cb")
     #print(cred,"Table 4 Cost reduction")
     #print("Total time:", time.time()-start)
     
-    return cos, mag, magr, pp.getValue(), ppp.getValue(), pppp.getValue(), fcost.getValue(), xprod, fcostr.getValue(), xrework, xxx.getValue(), ZZ, cbcost, cbcost2
+    return cos, mag, magr, pp.getValue(), ppp.getValue(), pppp.getValue(), fcost.getValue(), xprod, fcostr.getValue(), xrework, xxx.getValue(), ZZ, cbcost, cbcost2, yS, yR, s, sR, BO, x, xR
 
