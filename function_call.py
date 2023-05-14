@@ -4,6 +4,7 @@ import time
 import math
 import numpy as np
 
+#rozpoczyna sie model - specyfikuje parametry i variables +forecasted defective item ratio O, realizationO zrealizowany defective item ratio
 def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp,realizationO):
     #Decision variables default settings are 0.0 lb for all continous variables (positive values)
     x = n.addVars(Pro, Pe, vtype=GRB.BINARY, name="x")
@@ -18,6 +19,7 @@ def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp,rea
     #n.update()
 
     #Objective
+    #bocost cost function of backorders so that cost will be caluclated for each iteration;potem w obj =..+bocost
     bocost = quicksum(h[j]*m*BO[j,t] for j in Pro for t in Pe[:-1]) + quicksum(h[j]*1000*BO[j,Pe[-1]] for j in Pro)
     obj= quicksum(((f[j]*x[j,t]+h[j]*s[j,t])+(f[j]*xR[j,t]+hR[j]*sR[j,t])) for j in Pro for t in Pe) + bocost
     n.setObjective(obj, GRB.MINIMIZE) 
@@ -94,15 +96,16 @@ def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp,rea
 
     n.optimize()
 
-    n.printAttr('x','y*')
-    n.printAttr('x','sR*')
+    #n.printAttr('x','y*')
+    #n.printAttr('x','sR*')
     #n.update()
     
+    #stworzenie pustych macierz wypelnionych zerami stworzony by latwiej pozmieniac pozniej wartosci
     lots_rework = np.zeros((Pro[-1]+1, Pe[-1]+1))
     setup_rework = np.zeros((Pro[-1]+1, Pe[-1]+1))
     for item in range(Pro[-1]+1):
         for period in range(Pe[-1]+1):
-            lots_rework[item, period] = yR[item, period].x
+            lots_rework[item, period] = yR[item, period].x #podmiana wartosci z zer na yR i xR
             setup_rework[item, period] = xR[item, period].x
     print('Lots rework:\n', lots_rework)    
     print('Setups rework:\n', setup_rework) 
@@ -160,6 +163,7 @@ def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp,rea
             
  #realized calulations.................................................................................  
 
+    #stworzenie pustych macierz
     yS = np.zeros((Pro[-1]+1, Pe[-1]+1))
     R = np.zeros((Pro[-1]+1, Pe[-1]+1))
     
@@ -169,7 +173,7 @@ def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp,rea
     sR = np.zeros((Pro[-1]+1, Pe[-1]+1))
     
     
-    
+    #obliczenie yS i R z zaokragleniami
     for j in Pro:
         for t in Pe:
             #floor brackets  
@@ -181,7 +185,7 @@ def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp,rea
 #     print(yS)
 #     print(R)    
         
-    
+    #calculations for realized inventory of serviceable items
     for j in Pro:
         for t in Pe:
             if t==0:
@@ -195,7 +199,7 @@ def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp,rea
                 s[j,t] = inv.getValue()
             else:
                 BO[j,t] = -inv.getValue()
-                
+ #calculations for realized inventory of rework               
     for j in Pro:
         for t in Pe:
             if t==0:
@@ -209,8 +213,7 @@ def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp,rea
         for t in Pe:
             cbcost2=cbcost2+(h[j]*m)*BO[j,t]
             
-    cos=[] # empty BO0 by wyciagnac okrojone wartosci BO
-
+    cos=[] # stworzona zerowa lista dla empty BO0 by wyciagnac okrojone wartosci BO
     for j in Pro:
         cos.append(BO[j,Rp-1])
         

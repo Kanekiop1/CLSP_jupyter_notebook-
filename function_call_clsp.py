@@ -2,9 +2,10 @@
 from gurobipy import *
 import time
 import math
+import numpy as np
 
 
-def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp,CostBo):
+def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp,CostBo,realizationO):
     #Decision variables default settings are 0.0 lb for all continous variables (positive values)
     x = n.addVars(Pro, Pe, vtype=GRB.BINARY, name="x")
     s = n.addVars(Pro, Pe, vtype=GRB.CONTINUOUS, name="s")
@@ -96,12 +97,12 @@ def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp,Cos
 
     n.optimize()
 
-    n.printAttr('x','y*')
-    n.printAttr('x','sR*')
+    #n.printAttr('x','y*')
+    #n.printAttr('x','sR*')
     #n.update()
 
     #PRINT ALL RESULTS BELOW
-    #holding cost
+       #holding cost
     pp=0
     for j in Pro:
         for t in Pe:
@@ -132,6 +133,7 @@ def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp,Cos
         for t in Pe:
             fcostr=fcostr+(f[j]*xR[j,t])
     xxx=0
+    #Capacity Utilization
     for j in Pro:
         for t in Pe:
             xxx=xxx+(((tp[j]*y[j,t]+ts[j]*x[j,t])+(tpR[j]*yR[j,t]+tsR[j]*xR[j,t]))/b[0])*0.1
@@ -146,40 +148,95 @@ def compute_values(n,d,f,h,hR,tp,tpR,ts,tsR,b,k,M,s0,sR0,T,m,BO0,Pro,Pe,O,Rp,Cos
     for j in Pro:
         for t in Pe:
             cbcost=cbcost+(h[j]*m)*BO[j,t].x
-    cos=[]# BO0
+            
+ #realized calulations.................................................................................  
+
+    yS = np.zeros((Pro[-1]+1, Pe[-1]+1))
+    R = np.zeros((Pro[-1]+1, Pe[-1]+1))
+    
+    s = np.zeros((Pro[-1]+1, Pe[-1]+1))
+    BO = np.zeros((Pro[-1]+1, Pe[-1]+1))
+    
+    sR = np.zeros((Pro[-1]+1, Pe[-1]+1))
+    
+    
+    
+    for j in Pro:
+        for t in Pe:
+            #floor brackets  
+            yS[j,t] = math.floor((y[j,t].x*(1-realizationO[t])))  #math.floor works, no gurobi used here
+            #ceil brackets
+            R[j,t] = math.ceil((y[j,t].x*realizationO[t]))
+            print('O', realizationO[t])
+    
+#     print(yS)
+#     print(R)    
+        
+    
+    for j in Pro:
+        for t in Pe:
+            if t==0:
+                inv = s0[j]+yS[j,t]+yR[j,t]-d[j][t]-BO0[j]
+            else:
+                inv = s[j,t-1]+yS[j,t]+yR[j,t]-d[j][t]-BO[j,t-1]
+
+ #inv calculated from gurobi values/expressions & no matrix created so i use getValue()
+
+            if inv.getValue() > 0:
+                s[j,t] = inv.getValue()
+            else:
+                BO[j,t] = -inv.getValue()
+                
+    for j in Pro:
+        for t in Pe:
+            if t==0:
+                sR[j,t] = max(sR0[j] + R[j,t] - yR[j,t].x, 0)
+            else:
+                sR[j,t] = max(sR[j,t-1] + R[j,t] - yR[j,t].x, 0)
+    
+    #Back order realization costs 
+    cbcost2=0
+    for j in Pro:
+        for t in Pe:
+            cbcost2=cbcost2+(h[j]*m)*BO[j,t]
+            
+    cos=[] # empty BO0 by wyciagnac okrojone wartosci BO
 
     for j in Pro:
-        cos.append(BO[j,Rp-1].x)
+        cos.append(BO[j,Rp-1])
         
     mag=[] #s0
     for j in Pro:
-        mag.append(s[j,Rp-1].x)
+        mag.append(s[j,Rp-1])
     
     magr=[] #sR0
     for j in Pro:
-        magr.append(sR[j,Rp-1].x)
-        
+        magr.append(sR[j,Rp-1])
+    
+    
     #Objective fuction
     ZZ=n.ObjVal
     #Cost reduction
     #cred=0
     #for j in Pro:
     #    for t in Pe:
-    #        cred=((ZZ*100)/(ZZ+cbcost))     
+    #        cred=((ZZ*100)/(ZZ+cbcost))    
+    
 
 
-    print(pp.getValue(), "Table 4 h Holding cost")
-    print(ppp.getValue(), "Table 4 hR Holding cost for rework")
-    print(pppp.getValue(), "Setup cost combined")
-    print(fcost.getValue(), "Table 4 f Setup cost for production")
-    print(xprod, "Table 4 x Nr of set-ups for production")
-    print(fcostr.getValue(), "Table 4 f Setup cost for rework")
-    print(xrework, "Table 4 xR Setup cost for rework")
-    print(xxx.getValue(), "Table 4 Capacity Utilization")
-    print(ZZ, "Table 4 Z objective function value")
-    print(cbcost,"Table 4 Back order costs cb")
+    #print(pp.getValue(), "Table 4 h Holding cost")
+#     print(ppp.getValue(), "Table 4 hR Holding cost for rework")
+#     print(pppp.getValue(), "Setup cost combined")
+#     print(fcost.getValue(), "Table 4 f Setup cost for production")
+#     print(xprod, "Table 4 x Nr of set-ups for production")
+#     print(fcostr.getValue(), "Table 4 f Setup cost for rework")
+#     print(xrework, "Table 4 xR Setup cost for rework")
+#     print(xxx.getValue(), "Table 4 Capacity Utilization")
+#     print(ZZ, "Table 4 Z objective function value")
+#     print(cbcost,"Table 4 Back order costs cb")
+#     print(cbcost2,"Table 4 Back order realization costs cb")
     #print(cred,"Table 4 Cost reduction")
     #print("Total time:", time.time()-start)
     
-    return cos, mag, magr
+    return cos, mag, magr, pp.getValue(), ppp.getValue(), pppp.getValue(), fcost.getValue(), xprod, fcostr.getValue(), xrework, xxx.getValue(), ZZ, cbcost, cbcost2, yS, yR, s, sR, BO, x, xR
 
